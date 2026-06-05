@@ -5,8 +5,8 @@ import './globals.css'
 const basePath = process.env.NEXT_PUBLIC_BASE_PATH || ''
 
 export const metadata: Metadata = {
-  title: 'EvidencePilot - Academic Writing with AI',
-  description: 'Intelligent evidence management and citation assistant for academic writing',
+  title: 'EvidencePilot - Evidence Mapping Workspace',
+  description: 'Student evidence mapping and instructor feedback prototype',
   generator: 'v0.app',
   icons: {
     icon: [
