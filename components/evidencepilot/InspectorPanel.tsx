@@ -1,37 +1,69 @@
-import { FileUp, GitBranch, Link2, Network, PlusCircle } from 'lucide-react'
+import { FileUp, GitBranch, Link2, MessageSquare, Network, PlusCircle } from 'lucide-react'
 import type React from 'react'
 
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
-import type { Claim, EvidenceResult, GraphEdge, GraphNode, Source } from './types'
+import { Textarea } from '@/components/ui/textarea'
+import { SourceGraph } from './SourceGraph'
+import type {
+  ActorRole,
+  Claim,
+  CommentCategory,
+  EvidenceResult,
+  ReviewComment,
+  ReviewSelection,
+  Source,
+  SourceGraphEdge,
+  SourceGraphNode,
+} from './types'
+
+export type WorkspaceTab = 'source' | 'graph' | 'feedback'
 
 type InspectorPanelProps = {
-  activeTab: 'source' | 'graph'
-  onTabChange: (tab: 'source' | 'graph') => void
+  actor: ActorRole
+  activeTab: WorkspaceTab
+  onTabChange: (tab: WorkspaceTab) => void
   activeClaim: Claim | null
+  claims: Claim[]
+  comments: ReviewComment[]
   sources: Source[]
   evidenceResults: EvidenceResult[]
-  graphNodes: GraphNode[]
-  graphEdges: GraphEdge[]
+  feedbackCategory: CommentCategory
+  feedbackDraft: string
+  reviewSelection: ReviewSelection | null
+  selectedSourceId: string | null
+  onAddComment: () => void
+  onCommentOnEvidence: (evidence: EvidenceResult) => void
+  onFeedbackCategoryChange: (category: CommentCategory) => void
+  onFeedbackDraftChange: (draft: string) => void
+  sourceGraphNodes: SourceGraphNode[]
+  sourceGraphEdges: SourceGraphEdge[]
+  onSelectSource: (sourceId: string) => void
   onSimulateUpload: () => void
   onMapEvidence: (evidenceId: string) => void
 }
 
-const strengthClassName: Record<GraphEdge['strength'], string> = {
-  strong: 'border-emerald-200 bg-emerald-50 text-emerald-700',
-  medium: 'border-blue-200 bg-blue-50 text-blue-700',
-  weak: 'border-amber-200 bg-amber-50 text-amber-700',
-}
-
 export function InspectorPanel({
+  actor,
   activeTab,
   onTabChange,
   activeClaim,
+  claims,
+  comments,
   sources,
   evidenceResults,
-  graphNodes,
-  graphEdges,
+  feedbackCategory,
+  feedbackDraft,
+  reviewSelection,
+  selectedSourceId,
+  sourceGraphNodes,
+  sourceGraphEdges,
+  onAddComment,
+  onCommentOnEvidence,
+  onFeedbackCategoryChange,
+  onFeedbackDraftChange,
+  onSelectSource,
   onSimulateUpload,
   onMapEvidence,
 }: InspectorPanelProps) {
@@ -41,7 +73,7 @@ export function InspectorPanel({
 
   return (
     <aside className="flex min-h-0 flex-col rounded-md border border-slate-200 bg-white shadow-sm">
-      <div className="grid grid-cols-2 border-b border-slate-200">
+      <div className={`grid border-b border-slate-200 ${actor === 'instructor' ? 'grid-cols-3' : 'grid-cols-2'}`}>
         <button
           className={`flex items-center justify-center gap-2 px-4 py-3 text-sm font-semibold transition ${
             activeTab === 'source' ? 'bg-slate-100 text-slate-950' : 'text-slate-500 hover:bg-slate-50'
@@ -62,24 +94,50 @@ export function InspectorPanel({
           <Network className="size-4" />
           Graph
         </button>
+        {actor === 'instructor' && (
+          <button
+            className={`flex items-center justify-center gap-2 border-l border-slate-200 px-4 py-3 text-sm font-semibold transition ${
+              activeTab === 'feedback' ? 'bg-slate-100 text-slate-950' : 'text-slate-500 hover:bg-slate-50'
+            }`}
+            onClick={() => onTabChange('feedback')}
+            type="button"
+          >
+            <MessageSquare className="size-4" />
+            Feedback
+          </button>
+        )}
       </div>
 
       <div className="min-h-0 flex-1 overflow-y-auto p-4">
         {activeTab === 'source' ? (
           <SourceTab
+            actor={actor}
             activeClaim={activeClaim}
             activeEvidence={activeEvidence}
             sources={sources}
+            onCommentOnEvidence={onCommentOnEvidence}
             onMapEvidence={onMapEvidence}
             onSimulateUpload={onSimulateUpload}
           />
-        ) : (
-          <GraphTab
-            activeClaim={activeClaim}
-            activeEvidence={activeEvidence}
-            graphEdges={graphEdges}
-            graphNodes={graphNodes}
+        ) : activeTab === 'graph' ? (
+          <SourceGraph
+            claims={claims}
+            evidenceResults={evidenceResults}
+            onSelectSource={onSelectSource}
+            selectedSourceId={selectedSourceId}
+            sourceGraphEdges={sourceGraphEdges}
+            sourceGraphNodes={sourceGraphNodes}
             sources={sources}
+          />
+        ) : (
+          <FeedbackTab
+            comments={comments}
+            feedbackCategory={feedbackCategory}
+            feedbackDraft={feedbackDraft}
+            reviewSelection={reviewSelection}
+            onAddComment={onAddComment}
+            onFeedbackCategoryChange={onFeedbackCategoryChange}
+            onFeedbackDraftChange={onFeedbackDraftChange}
           />
         )}
       </div>
@@ -88,27 +146,39 @@ export function InspectorPanel({
 }
 
 function SourceTab({
+  actor,
   activeClaim,
   activeEvidence,
   sources,
+  onCommentOnEvidence,
   onMapEvidence,
   onSimulateUpload,
 }: {
+  actor: ActorRole
   activeClaim: Claim | null
   activeEvidence: EvidenceResult[]
   sources: Source[]
+  onCommentOnEvidence: (evidence: EvidenceResult) => void
   onMapEvidence: (evidenceId: string) => void
   onSimulateUpload: () => void
 }) {
+  const isInstructor = actor === 'instructor'
+
   return (
     <div className="space-y-4">
-      <Button className="h-auto w-full justify-start gap-3 rounded-md border-dashed py-3" onClick={onSimulateUpload} variant="outline">
-        <PlusCircle className="size-5" />
-        <span>
-          <span className="block text-left text-sm font-semibold">Upload PDF / DOCX / Link</span>
-          <span className="block text-left text-xs text-slate-500">Simulated upload for prototype data</span>
-        </span>
-      </Button>
+      {isInstructor ? (
+        <div className="rounded-md border border-slate-200 bg-slate-50 p-3 text-sm text-slate-600">
+          Review the student's submitted sources and evidence matches before returning feedback.
+        </div>
+      ) : (
+        <Button className="h-auto w-full justify-start gap-3 rounded-md border-dashed py-3" onClick={onSimulateUpload} variant="outline">
+          <PlusCircle className="size-5" />
+          <span>
+            <span className="block text-left text-sm font-semibold">Upload PDF / DOCX / Link</span>
+            <span className="block text-left text-xs text-slate-500">Simulated upload for prototype data</span>
+          </span>
+        </Button>
+      )}
 
       <div>
         <div className="mb-2 flex items-center justify-between">
@@ -169,14 +239,26 @@ function SourceTab({
                     </Badge>
                   </div>
                   <p className="mb-3 text-sm leading-5 text-slate-700">{evidence.excerpt}</p>
-                  <Button
-                    className="h-8 w-full rounded-md text-xs"
-                    disabled={evidence.status === 'mapped'}
-                    onClick={() => onMapEvidence(evidence.id)}
-                    size="sm"
-                  >
-                    {evidence.status === 'mapped' ? 'Mapped to claim' : 'Map to claim'}
-                  </Button>
+                  {isInstructor ? (
+                    <Button
+                      className="h-8 w-full rounded-md text-xs"
+                      onClick={() => onCommentOnEvidence(evidence)}
+                      size="sm"
+                      variant="outline"
+                    >
+                      <MessageSquare className="size-3.5" />
+                      Comment on evidence
+                    </Button>
+                  ) : (
+                    <Button
+                      className="h-8 w-full rounded-md text-xs"
+                      disabled={evidence.status === 'mapped'}
+                      onClick={() => onMapEvidence(evidence.id)}
+                      size="sm"
+                    >
+                      {evidence.status === 'mapped' ? 'Mapped to claim' : 'Map to claim'}
+                    </Button>
+                  )}
                 </Card>
               )
             })}
@@ -187,91 +269,96 @@ function SourceTab({
   )
 }
 
-function GraphTab({
-  activeClaim,
-  activeEvidence,
-  graphEdges,
-  graphNodes,
-  sources,
+function FeedbackTab({
+  comments,
+  feedbackCategory,
+  feedbackDraft,
+  reviewSelection,
+  onAddComment,
+  onFeedbackCategoryChange,
+  onFeedbackDraftChange,
 }: {
-  activeClaim: Claim | null
-  activeEvidence: EvidenceResult[]
-  graphEdges: GraphEdge[]
-  graphNodes: GraphNode[]
-  sources: Source[]
+  comments: ReviewComment[]
+  feedbackCategory: CommentCategory
+  feedbackDraft: string
+  reviewSelection: ReviewSelection | null
+  onAddComment: () => void
+  onFeedbackCategoryChange: (category: CommentCategory) => void
+  onFeedbackDraftChange: (draft: string) => void
 }) {
-  if (!activeClaim) {
-    return <EmptyPanel icon={<Network className="size-5" />} text="Select a supported claim to open the graph map." />
-  }
-
-  const visibleEdges = graphEdges.filter((edge) => edge.from === activeClaim.id || edge.to === activeClaim.id)
+  const categories: CommentCategory[] = ['Claim clarity', 'Evidence strength', 'Source mapping', 'Writing']
 
   return (
     <div className="space-y-4">
-      <div className="rounded-md border border-blue-200 bg-blue-50 p-4 text-center">
-        <div className="text-xs font-semibold uppercase text-blue-700">Selected claim</div>
-        <div className="mt-2 text-sm font-semibold leading-5 text-blue-950">{activeClaim.text}</div>
-      </div>
-
-      <div className="space-y-3">
-        {activeEvidence.map((evidence) => {
-          const source = sources.find((item) => item.id === evidence.sourceId)
-          return (
-            <div key={evidence.id} className="grid grid-cols-[1fr_auto_1fr] items-center gap-2">
-              <NodeBox label={activeClaim.text} kind="claim" />
-              <div className="flex flex-col items-center">
-                <div className="h-px w-8 bg-slate-300" />
-                <Badge
-                  variant="outline"
-                  className={
-                    evidence.status === 'mapped'
-                      ? 'mt-1 border-emerald-200 bg-emerald-50 text-[10px] text-emerald-700'
-                      : 'mt-1 border-amber-200 bg-amber-50 text-[10px] text-amber-700'
-                  }
-                >
-                  {evidence.status}
-                </Badge>
-              </div>
-              <NodeBox label={source?.title ?? 'Unknown source'} kind="source" />
-            </div>
-          )
-        })}
-      </div>
-
-      {visibleEdges.length > 0 && (
-        <div className="border-t border-slate-200 pt-4">
-          <h3 className="mb-2 text-sm font-semibold">Relationship notes</h3>
-          <div className="space-y-2">
-            {visibleEdges.map((edge) => {
-              const node = graphNodes.find((item) => item.id === edge.to || item.id === edge.from)
-              return (
-                <div key={edge.id} className="rounded-md border border-slate-200 p-3">
-                  <div className="mb-2 flex items-center justify-between gap-2">
-                    <span className="text-sm font-medium">{edge.label}</span>
-                    <Badge variant="outline" className={strengthClassName[edge.strength]}>
-                      {edge.strength}
-                    </Badge>
-                  </div>
-                  <p className="text-xs text-slate-500">{node?.label}</p>
-                </div>
-              )
-            })}
-          </div>
+      <div className="rounded-md border border-slate-200 bg-slate-50 p-3">
+        <div className="text-xs font-semibold uppercase text-slate-500">Feedback target</div>
+        <div className="mt-2 text-sm font-medium text-slate-950">
+          {reviewSelection ? reviewSelection.target : 'No text selected'}
         </div>
-      )}
+        <blockquote className="mt-2 border-l-2 border-slate-300 pl-2 text-sm leading-5 text-slate-600">
+          {reviewSelection?.quote ?? 'Click a claim, use Comment on text, or comment on evidence.'}
+        </blockquote>
+      </div>
+
+      <div className="space-y-2">
+        <label className="text-sm font-semibold" htmlFor="feedback-category">
+          Category
+        </label>
+        <select
+          id="feedback-category"
+          className="h-9 w-full rounded-md border border-slate-200 bg-white px-3 text-sm outline-none focus:border-slate-400"
+          value={feedbackCategory}
+          onChange={(event) => onFeedbackCategoryChange(event.target.value as CommentCategory)}
+        >
+          {categories.map((category) => (
+            <option key={category} value={category}>
+              {category}
+            </option>
+          ))}
+        </select>
+      </div>
+
+      <div className="space-y-2">
+        <label className="text-sm font-semibold" htmlFor="feedback-comment">
+          Instructor comment
+        </label>
+        <Textarea
+          id="feedback-comment"
+          className="min-h-28 resize-none rounded-md"
+          placeholder="Write feedback for the selected claim, text, or evidence."
+          value={feedbackDraft}
+          onChange={(event) => onFeedbackDraftChange(event.target.value)}
+        />
+      </div>
+
+      <Button className="w-full rounded-md" disabled={!reviewSelection || !feedbackDraft.trim()} onClick={onAddComment}>
+        Add feedback
+      </Button>
+
+      <div className="border-t border-slate-200 pt-4">
+        <div className="mb-2 flex items-center justify-between">
+          <h3 className="text-sm font-semibold">Feedback in this review</h3>
+          <Badge variant="outline">{comments.length}</Badge>
+        </div>
+        <div className="space-y-2">
+          {comments.map((comment) => (
+            <div key={comment.id} className="rounded-md border border-slate-200 bg-white p-3">
+              <div className="mb-2 flex items-center justify-between gap-2">
+                <Badge variant="outline" className="rounded-sm border-slate-200 bg-slate-50 text-slate-600">
+                  {comment.category}
+                </Badge>
+                <span className="text-xs text-slate-500">{comment.target}</span>
+              </div>
+              <blockquote className="mb-2 border-l-2 border-slate-300 pl-2 text-xs leading-5 text-slate-500">
+                {comment.quote}
+              </blockquote>
+              <p className="text-sm leading-5 text-slate-800">{comment.body}</p>
+            </div>
+          ))}
+        </div>
+      </div>
     </div>
   )
-}
-
-function NodeBox({ label, kind }: { label: string; kind: 'claim' | 'source' | 'related-claim' }) {
-  const className =
-    kind === 'claim'
-      ? 'border-blue-200 bg-blue-50 text-blue-950'
-      : kind === 'source'
-        ? 'border-emerald-200 bg-emerald-50 text-emerald-950'
-        : 'border-slate-200 bg-slate-50 text-slate-800'
-
-  return <div className={`min-h-16 rounded-md border p-2 text-center text-xs leading-5 ${className}`}>{label}</div>
 }
 
 function EmptyPanel({ icon, text }: { icon: React.ReactNode; text: string }) {

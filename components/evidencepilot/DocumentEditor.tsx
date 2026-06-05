@@ -3,29 +3,34 @@ import type React from 'react'
 
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import type { Claim, ReviewComment } from './types'
+import type { ActorRole, Claim, ReviewComment } from './types'
 
 type DocumentEditorProps = {
+  actor: ActorRole
   paragraphs: string[]
   claims: Claim[]
   comments: ReviewComment[]
   activeClaimId: string | null
   onSelectClaim: (claimId: string) => void
   onUseHighlightedText: (text: string) => void
+  onCommentOnText?: (text: string) => void
 }
 
 const EMPTY_TEXT = 'Start drafting your project argument here. Highlight a sentence to turn it into a claim.'
 
 export function DocumentEditor({
+  actor,
   paragraphs,
   claims,
   comments,
   activeClaimId,
   onSelectClaim,
   onUseHighlightedText,
+  onCommentOnText,
 }: DocumentEditorProps) {
   const content = paragraphs.length > 0 ? paragraphs : [EMPTY_TEXT]
   const unresolvedCount = comments.filter((comment) => !comment.resolved).length
+  const isInstructor = actor === 'instructor'
 
   return (
     <section className="min-h-0 overflow-y-auto rounded-md border border-slate-200 bg-white shadow-sm">
@@ -33,12 +38,21 @@ export function DocumentEditor({
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
             <div className="text-sm font-semibold text-slate-950">Document editor</div>
-            <p className="text-xs text-slate-500">Type, highlight text, and inspect supported claims.</p>
+            <p className="text-xs text-slate-500">
+              {isInstructor
+                ? 'Review highlighted claims and add inline feedback.'
+                : 'Type, highlight text, and inspect supported claims.'}
+            </p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
             <Badge variant="outline" className="rounded-sm border-blue-200 bg-blue-50 text-blue-700">
               {claims.filter((claim) => claim.supported).length} supported
             </Badge>
+            {isInstructor && (
+              <Badge variant="outline" className="rounded-sm border-amber-200 bg-amber-50 text-amber-700">
+                {claims.filter((claim) => !claim.supported).length} unsupported
+              </Badge>
+            )}
             <Badge variant="outline" className="rounded-sm border-rose-200 bg-rose-50 text-rose-700">
               {unresolvedCount} comments
             </Badge>
@@ -53,16 +67,25 @@ export function DocumentEditor({
 
         {content.map((paragraph, index) => (
           <div key={`${paragraph}-${index}`} className="group relative mb-7">
-            <p className="text-base leading-8 text-slate-800">{renderParagraph(paragraph, index, claims, activeClaimId, onSelectClaim)}</p>
+            <p className="text-base leading-8 text-slate-800">
+              {renderParagraph(paragraph, index, claims, activeClaimId, onSelectClaim, isInstructor)}
+            </p>
             <div className="mt-2 flex flex-wrap items-center gap-2 opacity-100 md:opacity-0 md:transition md:group-hover:opacity-100">
               <Button
                 size="sm"
                 variant="outline"
                 className="h-8 gap-2 rounded-md text-xs"
-                onClick={() => onUseHighlightedText(getSuggestedClaimText(paragraph))}
+                onClick={() => {
+                  const text = getSuggestedClaimText(paragraph)
+                  if (isInstructor) {
+                    onCommentOnText?.(text)
+                    return
+                  }
+                  onUseHighlightedText(text)
+                }}
               >
                 <PencilLine className="size-3.5" />
-                Use as claim
+                {isInstructor ? 'Comment on text' : 'Use as claim'}
               </Button>
               <span className="inline-flex items-center gap-1 text-xs text-slate-500">
                 <MousePointer2 className="size-3.5" />
@@ -82,6 +105,7 @@ function renderParagraph(
   claims: Claim[],
   activeClaimId: string | null,
   onSelectClaim: (claimId: string) => void,
+  isInstructor: boolean,
 ) {
   const paragraphClaims = claims
     .filter((claim) => claim.paragraphIndex === paragraphIndex && paragraph.includes(claim.text))
@@ -114,7 +138,7 @@ function renderParagraph(
         key={claim.id}
         className={`${className} text-left align-baseline transition`}
         onClick={() => {
-          if (claim.supported) onSelectClaim(claim.id)
+          if (claim.supported || isInstructor) onSelectClaim(claim.id)
         }}
         type="button"
       >

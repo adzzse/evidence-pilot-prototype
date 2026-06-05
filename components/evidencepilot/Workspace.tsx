@@ -1,6 +1,6 @@
 'use client'
 
-import { ArrowLeft, CheckCircle2, RotateCcw, Send, Sparkles } from 'lucide-react'
+import { ArrowLeft, CheckCircle2, MessageSquare, RotateCcw, Send, Sparkles } from 'lucide-react'
 import { useMemo, useState } from 'react'
 
 import { Badge } from '@/components/ui/badge'
@@ -8,12 +8,25 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { CommentMargin } from './CommentMargin'
 import { DocumentEditor } from './DocumentEditor'
-import { InspectorPanel } from './InspectorPanel'
-import type { Claim, EvidenceResult, GraphEdge, GraphNode, ProjectStatus, ProjectWorkspace, Source } from './types'
+import { InspectorPanel, type WorkspaceTab } from './InspectorPanel'
+import type {
+  ActorRole,
+  Claim,
+  CommentCategory,
+  EvidenceResult,
+  ProjectStatus,
+  ProjectWorkspace,
+  ReviewComment,
+  ReviewSelection,
+  Source,
+  SourceGraphEdge,
+} from './types'
 
 type WorkspaceProps = {
+  actor: ActorRole
   project: ProjectWorkspace
   onBack: () => void
+  onProjectChange: (project: ProjectWorkspace) => void
 }
 
 const statusClassName: Record<ProjectStatus, string> = {
@@ -27,9 +40,11 @@ const emptyDraftParagraphs = [
   'Start drafting your project argument here. Highlight a sentence to turn it into a claim.',
 ]
 
-export function Workspace({ project, onBack }: WorkspaceProps) {
+export function Workspace({ actor, project, onBack, onProjectChange }: WorkspaceProps) {
+  const isInstructor = actor === 'instructor'
   const [projectStatus, setProjectStatus] = useState(project.status)
-  const [activeTab, setActiveTab] = useState<'source' | 'graph'>('source')
+  const [reviewStatus, setReviewStatus] = useState(project.reviewStatus)
+  const [activeTab, setActiveTab] = useState<WorkspaceTab>('source')
   const [activeClaimId, setActiveClaimId] = useState<string | null>(
     project.claims.find((claim) => claim.supported)?.id ?? null,
   )
@@ -38,23 +53,93 @@ export function Workspace({ project, onBack }: WorkspaceProps) {
   const [claims, setClaims] = useState<Claim[]>(project.claims)
   const [evidenceResults, setEvidenceResults] = useState<EvidenceResult[]>(project.evidenceResults)
   const [comments, setComments] = useState(project.comments)
+  const [feedbackCategory, setFeedbackCategory] = useState<CommentCategory>('Claim clarity')
+  const [feedbackDraft, setFeedbackDraft] = useState('')
+  const [reviewSelection, setReviewSelection] = useState<ReviewSelection | null>(null)
   const [paragraphs] = useState(project.paragraphs.length > 0 ? project.paragraphs : emptyDraftParagraphs)
-  const [graphNodes, setGraphNodes] = useState<GraphNode[]>(project.graphNodes)
-  const [graphEdges, setGraphEdges] = useState<GraphEdge[]>(project.graphEdges)
+  const [selectedSourceId, setSelectedSourceId] = useState<string | null>(project.sources[0]?.id ?? null)
+  const [sourceGraphNodes] = useState(project.sourceGraphNodes)
+  const [sourceGraphEdges, setSourceGraphEdges] = useState<SourceGraphEdge[]>(project.sourceGraphEdges)
 
   const activeClaim = useMemo(
     () => claims.find((claim) => claim.id === activeClaimId) ?? null,
     [activeClaimId, claims],
   )
 
-  const visibleComments = projectStatus === 'Returned with Feedback' || projectStatus === 'Revising' ? comments : []
+  const visibleComments =
+    isInstructor || projectStatus === 'Returned with Feedback' || projectStatus === 'Revising' ? comments : []
   const unresolvedCount = comments.filter((comment) => !comment.resolved).length
+
+  function publishProject(overrides: Partial<ProjectWorkspace>) {
+    onProjectChange({
+      ...project,
+      status: projectStatus,
+      reviewStatus,
+      sources,
+      claims,
+      evidenceResults,
+      comments,
+      sourceGraphEdges,
+      ...overrides,
+    })
+  }
 
   function handleSelectClaim(claimId: string) {
     setActiveClaimId(claimId)
     setActiveTab('graph')
     const selected = claims.find((claim) => claim.id === claimId)
     setClaimInput(selected?.text ?? '')
+    if (selected && isInstructor) {
+      setFeedbackCategory(selected.supported ? 'Claim clarity' : 'Evidence strength')
+      setReviewSelection({
+        target: 'claim',
+        claimId,
+        quote: selected.text,
+      })
+    }
+    const firstEvidence = evidenceResults.find((evidence) => evidence.claimId === claimId)
+    setSelectedSourceId(firstEvidence?.sourceId ?? sources[0]?.id ?? null)
+  }
+
+  function handleCommentOnText(text: string) {
+    setFeedbackCategory('Writing')
+    setReviewSelection({
+      target: 'text',
+      quote: text,
+    })
+    setActiveTab('feedback')
+  }
+
+  function handleCommentOnEvidence(evidence: EvidenceResult) {
+    setFeedbackCategory(evidence.status === 'mapped' ? 'Source mapping' : 'Evidence strength')
+    setReviewSelection({
+      target: 'mapping',
+      evidenceId: evidence.id,
+      claimId: evidence.claimId,
+      quote: evidence.excerpt,
+    })
+    setSelectedSourceId(evidence.sourceId)
+    setActiveTab('feedback')
+  }
+
+  function handleAddComment() {
+    if (!reviewSelection || !feedbackDraft.trim()) return
+
+    const newComment: ReviewComment = {
+      id: `comment-${Date.now()}`,
+      ...reviewSelection,
+      author: 'Instructor',
+      body: feedbackDraft.trim(),
+      category: feedbackCategory,
+      resolved: false,
+    }
+    const nextComments = [...comments, newComment]
+    setComments(nextComments)
+    setFeedbackDraft('')
+    publishProject({
+      comments: nextComments,
+      feedbackCount: nextComments.length,
+    })
   }
 
   function handleUseHighlightedText(text: string) {
@@ -95,28 +180,53 @@ export function Workspace({ project, onBack }: WorkspaceProps) {
     const evidence = evidenceResults.find((item) => item.id === evidenceId)
     if (!evidence) return
 
-    setEvidenceResults((current) =>
-      current.map((item) => (item.id === evidenceId ? { ...item, status: 'mapped' } : item)),
+    const nextEvidenceResults = evidenceResults.map((item) =>
+      item.id === evidenceId ? { ...item, status: 'mapped' as const } : item,
     )
-    setClaims((current) =>
-      current.map((claim) => (claim.id === evidence.claimId ? { ...claim, supported: true } : claim)),
+    const nextClaims = claims.map((claim) =>
+      claim.id === evidence.claimId ? { ...claim, supported: true } : claim,
     )
+    setEvidenceResults(nextEvidenceResults)
+    setClaims(nextClaims)
     setActiveClaimId(evidence.claimId)
+    setSelectedSourceId(evidence.sourceId)
     setActiveTab('graph')
-  }
-
-  function handleSubmitToggle() {
-    setProjectStatus((current) => {
-      if (current === 'Draft' || current === 'Revising') return 'Submitted'
-      if (current === 'Submitted') return 'Returned with Feedback'
-      return 'Revising'
+    publishProject({
+      claims: nextClaims,
+      evidenceResults: nextEvidenceResults,
+      supportedClaimCount: nextClaims.filter((claim) => claim.supported).length,
     })
   }
 
+  function handleSubmitToggle() {
+    const nextStatus =
+      projectStatus === 'Draft' || projectStatus === 'Revising'
+        ? 'Submitted'
+        : projectStatus === 'Submitted'
+          ? 'Returned with Feedback'
+          : 'Revising'
+    setProjectStatus(nextStatus)
+    publishProject({ status: nextStatus })
+  }
+
   function handleResolveComment(commentId: string) {
-    setComments((current) =>
-      current.map((comment) => (comment.id === commentId ? { ...comment, resolved: true } : comment)),
+    const nextComments = comments.map((comment) =>
+      comment.id === commentId ? { ...comment, resolved: true } : comment,
     )
+    setComments(nextComments)
+    publishProject({ comments: nextComments })
+  }
+
+  function handleReturnWithFeedback() {
+    const nextStatus: ProjectStatus = 'Returned with Feedback'
+    setProjectStatus(nextStatus)
+    setReviewStatus('Returned')
+    publishProject({
+      status: nextStatus,
+      reviewStatus: 'Returned',
+      comments,
+      feedbackCount: comments.length,
+    })
   }
 
   function ensureClaimForText(text: string) {
@@ -134,7 +244,6 @@ export function Workspace({ project, onBack }: WorkspaceProps) {
     }
     setClaims((current) => [...current, newClaim])
     setActiveClaimId(newClaim.id)
-    setGraphNodes((current) => [...current, { id: newClaim.id, label: text, kind: 'claim' }])
     return newClaim
   }
 
@@ -153,16 +262,27 @@ export function Workspace({ project, onBack }: WorkspaceProps) {
     }
 
     setEvidenceResults((current) => [...current, newEvidence])
-    setGraphEdges((current) => [
-      ...current,
-      {
-        id: `edge-${Date.now()}`,
-        from: claimId,
-        to: source.id,
-        label: 'suggested evidence',
-        strength: 'medium',
-      },
-    ])
+    setSelectedSourceId(source.id)
+    setSourceGraphEdges((current) => {
+      const fromSourceId = sources[0]?.id
+      const toSourceId = source.id
+      if (!fromSourceId || !toSourceId || fromSourceId === toSourceId) return current
+      const exists = current.some(
+        (edge) =>
+          (edge.fromSourceId === fromSourceId && edge.toSourceId === toSourceId) ||
+          (edge.fromSourceId === toSourceId && edge.toSourceId === fromSourceId),
+      )
+      if (exists) return current
+      return [
+        ...current,
+        {
+          id: `source-edge-${Date.now()}`,
+          fromSourceId,
+          toSourceId,
+          label: 'related evidence',
+        },
+      ]
+    })
   }
 
   return (
@@ -170,7 +290,7 @@ export function Workspace({ project, onBack }: WorkspaceProps) {
       <header className="border-b border-slate-200 bg-white">
         <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-3">
           <div className="flex min-w-0 items-center gap-3">
-            <Button className="size-9 rounded-md" onClick={onBack} size="icon" variant="outline">
+            <Button aria-label="Back" className="size-9 rounded-md" onClick={onBack} size="icon" variant="outline">
               <ArrowLeft className="size-4" />
             </Button>
             <div className="min-w-0">
@@ -180,7 +300,11 @@ export function Workspace({ project, onBack }: WorkspaceProps) {
                 </div>
                 <h1 className="truncate text-base font-semibold">{project.title}</h1>
               </div>
-              <p className="mt-1 text-xs text-slate-500">Student workspace with returned instructor feedback</p>
+              <p className="mt-1 text-xs text-slate-500">
+                {isInstructor
+                  ? `Reviewing ${project.studentName}'s submitted workspace`
+                  : 'Student workspace with returned instructor feedback'}
+              </p>
             </div>
           </div>
 
@@ -188,29 +312,41 @@ export function Workspace({ project, onBack }: WorkspaceProps) {
             <Badge className={statusClassName[projectStatus]} variant="outline">
               {projectStatus}
             </Badge>
+            {isInstructor && (
+              <Badge className="border-amber-200 bg-amber-50 text-amber-700" variant="outline">
+                {reviewStatus}
+              </Badge>
+            )}
             {unresolvedCount > 0 && (
               <Badge className="border-rose-200 bg-rose-50 text-rose-700" variant="outline">
                 {unresolvedCount} open feedback
               </Badge>
             )}
-            <Button className="gap-2 rounded-md" onClick={handleSubmitToggle}>
-              {projectStatus === 'Draft' || projectStatus === 'Revising' ? (
-                <>
-                  <Send className="size-4" />
-                  Submit
-                </>
-              ) : projectStatus === 'Submitted' ? (
-                <>
-                  <CheckCircle2 className="size-4" />
-                  Simulate returned
-                </>
-              ) : (
-                <>
-                  <RotateCcw className="size-4" />
-                  Revise
-                </>
-              )}
-            </Button>
+            {isInstructor ? (
+              <Button className="gap-2 rounded-md" onClick={handleReturnWithFeedback}>
+                <MessageSquare className="size-4" />
+                Return with feedback
+              </Button>
+            ) : (
+              <Button className="gap-2 rounded-md" onClick={handleSubmitToggle}>
+                {projectStatus === 'Draft' || projectStatus === 'Revising' ? (
+                  <>
+                    <Send className="size-4" />
+                    Submit
+                  </>
+                ) : projectStatus === 'Submitted' ? (
+                  <>
+                    <CheckCircle2 className="size-4" />
+                    Simulate returned
+                  </>
+                ) : (
+                  <>
+                    <RotateCcw className="size-4" />
+                    Revise
+                  </>
+                )}
+              </Button>
+            )}
           </div>
         </div>
 
@@ -219,36 +355,62 @@ export function Workspace({ project, onBack }: WorkspaceProps) {
             <Input
               value={claimInput}
               onChange={(event) => setClaimInput(event.target.value)}
-              placeholder="Type a claim, or highlight text in the document"
+              placeholder={
+                isInstructor
+                  ? 'Selected claim appears here while you inspect evidence'
+                  : 'Type a claim, or highlight text in the document'
+              }
               className="h-10 rounded-md bg-white"
+              readOnly={isInstructor}
             />
-            <Button className="h-10 shrink-0 gap-2 rounded-md" onClick={handleFindSources}>
-              <Sparkles className="size-4" />
-              Find sources
-            </Button>
+            {isInstructor ? (
+              <Button className="h-10 shrink-0 gap-2 rounded-md" onClick={() => setActiveTab('feedback')} variant="outline">
+                <MessageSquare className="size-4" />
+                Comment
+              </Button>
+            ) : (
+              <Button className="h-10 shrink-0 gap-2 rounded-md" onClick={handleFindSources}>
+                <Sparkles className="size-4" />
+                Find sources
+              </Button>
+            )}
           </div>
         </div>
       </header>
 
-      <main className="grid min-h-0 flex-1 grid-cols-1 gap-4 overflow-y-auto p-4 xl:grid-cols-[220px_minmax(0,1fr)_380px] xl:overflow-hidden">
+      <main className="grid min-h-0 flex-1 grid-cols-1 gap-4 overflow-y-auto p-4 xl:grid-cols-[220px_minmax(0,1fr)_560px] xl:overflow-hidden">
         <CommentMargin comments={visibleComments} onResolve={handleResolveComment} />
         <DocumentEditor
+          actor={actor}
           activeClaimId={activeClaimId}
           claims={claims}
           comments={visibleComments}
+          onCommentOnText={handleCommentOnText}
           onSelectClaim={handleSelectClaim}
           onUseHighlightedText={handleUseHighlightedText}
           paragraphs={paragraphs}
         />
         <InspectorPanel
+          actor={actor}
           activeClaim={activeClaim}
           activeTab={activeTab}
+          claims={claims}
+          comments={comments}
           evidenceResults={evidenceResults}
-          graphEdges={graphEdges}
-          graphNodes={graphNodes}
+          feedbackCategory={feedbackCategory}
+          feedbackDraft={feedbackDraft}
+          reviewSelection={reviewSelection}
+          onAddComment={handleAddComment}
+          onCommentOnEvidence={handleCommentOnEvidence}
+          onFeedbackCategoryChange={setFeedbackCategory}
+          onFeedbackDraftChange={setFeedbackDraft}
           onMapEvidence={handleMapEvidence}
+          onSelectSource={setSelectedSourceId}
           onSimulateUpload={handleSimulateUpload}
           onTabChange={setActiveTab}
+          selectedSourceId={selectedSourceId}
+          sourceGraphEdges={sourceGraphEdges}
+          sourceGraphNodes={sourceGraphNodes}
           sources={sources}
         />
       </main>

@@ -1,16 +1,24 @@
 export type ProjectStatus = 'Draft' | 'Submitted' | 'Returned with Feedback' | 'Revising'
 
+export type ActorRole = 'student' | 'instructor'
+
+export type ReviewStatus = 'Not submitted' | 'Ready for Review' | 'Returned'
+
 export type SourceType = 'PDF' | 'DOCX' | 'Link'
 
 export type EvidenceStatus = 'mapped' | 'suggested'
 
 export type CommentTarget = 'claim' | 'mapping' | 'text'
 
+export type CommentCategory = 'Claim clarity' | 'Evidence strength' | 'Source mapping' | 'Writing'
+
 export type ProjectSummary = {
   id: string
   title: string
   description: string
   status: ProjectStatus
+  reviewStatus: ReviewStatus
+  studentName: string
   documentCount: number
   claimCount: number
   supportedClaimCount: number
@@ -50,7 +58,15 @@ export type ReviewComment = {
   quote: string
   author: string
   body: string
+  category: CommentCategory
   resolved: boolean
+}
+
+export type ReviewSelection = {
+  target: CommentTarget
+  quote: string
+  claimId?: string
+  evidenceId?: string
 }
 
 export type GraphNode = {
@@ -67,6 +83,20 @@ export type GraphEdge = {
   strength: 'strong' | 'medium' | 'weak'
 }
 
+export type SourceGraphNode = {
+  id: string
+  sourceId: string
+  x: number
+  y: number
+}
+
+export type SourceGraphEdge = {
+  id: string
+  fromSourceId: string
+  toSourceId: string
+  label: 'shared claim' | 'related evidence' | 'same topic'
+}
+
 export type ProjectWorkspace = ProjectSummary & {
   paragraphs: string[]
   sources: Source[]
@@ -75,4 +105,6 @@ export type ProjectWorkspace = ProjectSummary & {
   comments: ReviewComment[]
   graphNodes: GraphNode[]
   graphEdges: GraphEdge[]
+  sourceGraphNodes: SourceGraphNode[]
+  sourceGraphEdges: SourceGraphEdge[]
 }
