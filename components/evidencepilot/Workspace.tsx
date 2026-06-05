@@ -19,12 +19,15 @@ import type {
   ReviewComment,
   ReviewSelection,
   Source,
+  SourceGraphNode,
   SourceGraphEdge,
+  SourceSet,
 } from './types'
 
 type WorkspaceProps = {
   actor: ActorRole
   project: ProjectWorkspace
+  sharedSourceSets: SourceSet[]
   onBack: () => void
   onProjectChange: (project: ProjectWorkspace) => void
 }
@@ -40,8 +43,22 @@ const emptyDraftParagraphs = [
   'Start drafting your project argument here. Highlight a sentence to turn it into a claim.',
 ]
 
-export function Workspace({ actor, project, onBack, onProjectChange }: WorkspaceProps) {
+export function Workspace({ actor, project, sharedSourceSets, onBack, onProjectChange }: WorkspaceProps) {
   const isInstructor = actor === 'instructor'
+  const sharedSources = useMemo(() => sharedSourceSets.flatMap((sourceSet) => sourceSet.sources), [sharedSourceSets])
+  const initialSources = useMemo(() => mergeSources(project.sources, sharedSources), [project.sources, sharedSources])
+  const initialEvidenceResults = useMemo(
+    () => mergeSharedEvidence(project.evidenceResults, project.claims, sharedSources),
+    [project.evidenceResults, project.claims, sharedSources],
+  )
+  const initialSourceGraphNodes = useMemo(
+    () => mergeSourceGraphNodes(project.sourceGraphNodes, sharedSources),
+    [project.sourceGraphNodes, sharedSources],
+  )
+  const initialSourceGraphEdges = useMemo(
+    () => mergeSourceGraphEdges(project.sourceGraphEdges, project.sources[0]?.id, sharedSources),
+    [project.sourceGraphEdges, project.sources, sharedSources],
+  )
   const [projectStatus, setProjectStatus] = useState(project.status)
   const [reviewStatus, setReviewStatus] = useState(project.reviewStatus)
   const [activeTab, setActiveTab] = useState<WorkspaceTab>('source')
@@ -49,17 +66,17 @@ export function Workspace({ actor, project, onBack, onProjectChange }: Workspace
     project.claims.find((claim) => claim.supported)?.id ?? null,
   )
   const [claimInput, setClaimInput] = useState('')
-  const [sources, setSources] = useState<Source[]>(project.sources)
+  const [sources, setSources] = useState<Source[]>(initialSources)
   const [claims, setClaims] = useState<Claim[]>(project.claims)
-  const [evidenceResults, setEvidenceResults] = useState<EvidenceResult[]>(project.evidenceResults)
+  const [evidenceResults, setEvidenceResults] = useState<EvidenceResult[]>(initialEvidenceResults)
   const [comments, setComments] = useState(project.comments)
   const [feedbackCategory, setFeedbackCategory] = useState<CommentCategory>('Claim clarity')
   const [feedbackDraft, setFeedbackDraft] = useState('')
   const [reviewSelection, setReviewSelection] = useState<ReviewSelection | null>(null)
   const [paragraphs] = useState(project.paragraphs.length > 0 ? project.paragraphs : emptyDraftParagraphs)
-  const [selectedSourceId, setSelectedSourceId] = useState<string | null>(project.sources[0]?.id ?? null)
-  const [sourceGraphNodes] = useState(project.sourceGraphNodes)
-  const [sourceGraphEdges, setSourceGraphEdges] = useState<SourceGraphEdge[]>(project.sourceGraphEdges)
+  const [selectedSourceId, setSelectedSourceId] = useState<string | null>(initialSources[0]?.id ?? null)
+  const [sourceGraphNodes, setSourceGraphNodes] = useState<SourceGraphNode[]>(initialSourceGraphNodes)
+  const [sourceGraphEdges, setSourceGraphEdges] = useState<SourceGraphEdge[]>(initialSourceGraphEdges)
 
   const activeClaim = useMemo(
     () => claims.find((claim) => claim.id === activeClaimId) ?? null,
@@ -79,6 +96,7 @@ export function Workspace({ actor, project, onBack, onProjectChange }: Workspace
       claims,
       evidenceResults,
       comments,
+      sourceGraphNodes,
       sourceGraphEdges,
       ...overrides,
     })
@@ -166,6 +184,7 @@ export function Workspace({ actor, project, onBack, onProjectChange }: Workspace
           type: 'PDF',
           status: 'Ready',
           excerpt: 'Newly uploaded source prepared for simulated evidence matching.',
+          owner: 'student',
         },
       ]
       setSources(nextSources)
@@ -263,6 +282,18 @@ export function Workspace({ actor, project, onBack, onProjectChange }: Workspace
 
     setEvidenceResults((current) => [...current, newEvidence])
     setSelectedSourceId(source.id)
+    setSourceGraphNodes((current) => {
+      if (current.some((node) => node.sourceId === source.id)) return current
+      return [
+        ...current,
+        {
+          id: `graph-${source.id}`,
+          sourceId: source.id,
+          x: 20 + (current.length % 5) * 16,
+          y: 72,
+        },
+      ]
+    })
     setSourceGraphEdges((current) => {
       const fromSourceId = sources[0]?.id
       const toSourceId = source.id
@@ -411,9 +442,78 @@ export function Workspace({ actor, project, onBack, onProjectChange }: Workspace
           selectedSourceId={selectedSourceId}
           sourceGraphEdges={sourceGraphEdges}
           sourceGraphNodes={sourceGraphNodes}
+          sourceSets={sharedSourceSets}
           sources={sources}
         />
       </main>
     </div>
   )
+}
+
+function mergeSources(projectSources: Source[], sharedSources: Source[]) {
+  const seen = new Set(projectSources.map((source) => source.id))
+  return [
+    ...projectSources.map((source) => ({ ...source, owner: source.owner ?? 'student' })),
+    ...sharedSources.filter((source) => !seen.has(source.id)),
+  ]
+}
+
+function mergeSharedEvidence(
+  projectEvidenceResults: EvidenceResult[],
+  claims: Claim[],
+  sharedSources: Source[],
+) {
+  const seen = new Set(projectEvidenceResults.map((evidence) => evidence.id))
+  const sharedEvidence = sharedSources.flatMap((source, sourceIndex) =>
+    claims.slice(0, 2).map((claim, claimIndex) => ({
+      id: `shared-evidence-${source.id}-${claim.id}`,
+      sourceId: source.id,
+      claimId: claim.id,
+      excerpt: source.excerpt,
+      match: Math.max(74, 88 - sourceIndex * 5 - claimIndex * 4),
+      status: 'suggested' as const,
+    })),
+  )
+
+  return [
+    ...projectEvidenceResults,
+    ...sharedEvidence.filter((evidence) => !seen.has(evidence.id)),
+  ]
+}
+
+function mergeSourceGraphNodes(projectNodes: SourceGraphNode[], sharedSources: Source[]) {
+  const seen = new Set(projectNodes.map((node) => node.sourceId))
+  const sharedPositions = [
+    { x: 20, y: 28 },
+    { x: 86, y: 24 },
+    { x: 88, y: 72 },
+    { x: 18, y: 74 },
+  ]
+
+  return [
+    ...projectNodes,
+    ...sharedSources
+      .filter((source) => !seen.has(source.id))
+      .map((source, index) => ({
+        id: `graph-${source.id}`,
+        sourceId: source.id,
+        ...sharedPositions[index % sharedPositions.length],
+      })),
+  ]
+}
+
+function mergeSourceGraphEdges(projectEdges: SourceGraphEdge[], anchorSourceId: string | undefined, sharedSources: Source[]) {
+  if (!anchorSourceId) return projectEdges
+  const seen = new Set(projectEdges.map((edge) => `${edge.fromSourceId}:${edge.toSourceId}`))
+  const sharedEdges = sharedSources.map((source) => ({
+    id: `source-edge-${anchorSourceId}-${source.id}`,
+    fromSourceId: anchorSourceId,
+    toSourceId: source.id,
+    label: 'related evidence' as const,
+  }))
+
+  return [
+    ...projectEdges,
+    ...sharedEdges.filter((edge) => !seen.has(`${edge.fromSourceId}:${edge.toSourceId}`)),
+  ]
 }

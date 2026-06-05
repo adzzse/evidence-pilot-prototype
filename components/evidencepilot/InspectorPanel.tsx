@@ -16,6 +16,7 @@ import type {
   Source,
   SourceGraphEdge,
   SourceGraphNode,
+  SourceSet,
 } from './types'
 
 export type WorkspaceTab = 'source' | 'graph' | 'feedback'
@@ -39,6 +40,7 @@ type InspectorPanelProps = {
   onFeedbackDraftChange: (draft: string) => void
   sourceGraphNodes: SourceGraphNode[]
   sourceGraphEdges: SourceGraphEdge[]
+  sourceSets: SourceSet[]
   onSelectSource: (sourceId: string) => void
   onSimulateUpload: () => void
   onMapEvidence: (evidenceId: string) => void
@@ -59,6 +61,7 @@ export function InspectorPanel({
   selectedSourceId,
   sourceGraphNodes,
   sourceGraphEdges,
+  sourceSets,
   onAddComment,
   onCommentOnEvidence,
   onFeedbackCategoryChange,
@@ -114,6 +117,7 @@ export function InspectorPanel({
             actor={actor}
             activeClaim={activeClaim}
             activeEvidence={activeEvidence}
+            sourceSets={sourceSets}
             sources={sources}
             onCommentOnEvidence={onCommentOnEvidence}
             onMapEvidence={onMapEvidence}
@@ -149,6 +153,7 @@ function SourceTab({
   actor,
   activeClaim,
   activeEvidence,
+  sourceSets,
   sources,
   onCommentOnEvidence,
   onMapEvidence,
@@ -157,6 +162,7 @@ function SourceTab({
   actor: ActorRole
   activeClaim: Claim | null
   activeEvidence: EvidenceResult[]
+  sourceSets: SourceSet[]
   sources: Source[]
   onCommentOnEvidence: (evidence: EvidenceResult) => void
   onMapEvidence: (evidenceId: string) => void
@@ -180,6 +186,25 @@ function SourceTab({
         </Button>
       )}
 
+      {!isInstructor && sourceSets.length > 0 && (
+        <div className="rounded-md border border-emerald-200 bg-emerald-50 p-3">
+          <div className="text-sm font-semibold text-emerald-900">Shared by instructor</div>
+          <div className="mt-2 space-y-2">
+            {sourceSets.map((sourceSet) => (
+              <div key={sourceSet.id} className="flex items-start justify-between gap-3 text-sm">
+                <div className="min-w-0">
+                  <div className="font-medium text-emerald-950">{sourceSet.name}</div>
+                  <div className="mt-1 text-xs leading-5 text-emerald-800">{sourceSet.description}</div>
+                </div>
+                <Badge className="shrink-0 border-emerald-300 bg-white text-emerald-700" variant="outline">
+                  {sourceSet.sources.length} sources
+                </Badge>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       <div>
         <div className="mb-2 flex items-center justify-between">
           <h3 className="text-sm font-semibold">Uploaded sources</h3>
@@ -198,6 +223,11 @@ function SourceTab({
                     <div className="mt-1 text-xs text-slate-500">
                       {source.type} - {source.status}
                     </div>
+                    {source.owner === 'instructor' && (
+                      <Badge className="mt-2 border-emerald-200 bg-emerald-50 text-emerald-700" variant="outline">
+                        Shared by {source.sharedBy ?? 'Instructor'}
+                      </Badge>
+                    )}
                   </div>
                 </div>
               </div>
@@ -225,7 +255,9 @@ function SourceTab({
                   <div className="mb-2 flex items-start justify-between gap-2">
                     <div className="min-w-0">
                       <div className="truncate text-sm font-semibold">{source?.title ?? 'Unknown source'}</div>
-                      <div className="text-xs text-slate-500">Match {evidence.match}%</div>
+                      <div className="text-xs text-slate-500">
+                        Match {evidence.match}%{source?.owner === 'instructor' ? ' - instructor source' : ''}
+                      </div>
                     </div>
                     <Badge
                       variant="outline"

@@ -4,13 +4,18 @@ import type React from 'react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
-import type { ActorRole, ProjectStatus, ProjectSummary } from './types'
+import { SourceSetManager } from './SourceSetManager'
+import type { ActorRole, ProjectStatus, ProjectSummary, SourceSet } from './types'
 
 type DashboardProps = {
   actor: ActorRole
   projects: ProjectSummary[]
+  sourceSets: SourceSet[]
   onActorChange: (actor: ActorRole) => void
+  onAddSourceToSet: (sourceSetId: string) => void
+  onCreateSourceSet: () => void
   onOpenProject: (projectId: string) => void
+  onShareSourceSet: (sourceSetId: string, projectId: string) => void
 }
 
 const statusClassName: Record<ProjectStatus, string> = {
@@ -20,7 +25,16 @@ const statusClassName: Record<ProjectStatus, string> = {
   Revising: 'bg-blue-50 text-blue-700 border-blue-200',
 }
 
-export function Dashboard({ actor, projects, onActorChange, onOpenProject }: DashboardProps) {
+export function Dashboard({
+  actor,
+  projects,
+  sourceSets,
+  onActorChange,
+  onAddSourceToSet,
+  onCreateSourceSet,
+  onOpenProject,
+  onShareSourceSet,
+}: DashboardProps) {
   const isInstructor = actor === 'instructor'
   const visibleProjects = isInstructor ? projects.filter((project) => !project.isEmpty) : projects
 
@@ -140,6 +154,16 @@ export function Dashboard({ actor, projects, onActorChange, onOpenProject }: Das
             </Card>
           ))}
         </div>
+
+        {isInstructor && (
+          <SourceSetManager
+            projects={projects}
+            sourceSets={sourceSets}
+            onAddSource={onAddSourceToSet}
+            onCreateSourceSet={onCreateSourceSet}
+            onShareSourceSet={onShareSourceSet}
+          />
+        )}
       </section>
     </main>
   )
