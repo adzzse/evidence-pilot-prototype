@@ -9,7 +9,7 @@ import { Input } from '@/components/ui/input'
 import { CommentMargin } from './CommentMargin'
 import { DocumentEditor } from './DocumentEditor'
 import { InspectorPanel } from './InspectorPanel'
-import type { Claim, EvidenceResult, GraphEdge, GraphNode, ProjectStatus, ProjectWorkspace, Source } from './types'
+import type { Claim, EvidenceResult, ProjectStatus, ProjectWorkspace, Source, SourceGraphEdge } from './types'
 
 type WorkspaceProps = {
   project: ProjectWorkspace
@@ -39,8 +39,9 @@ export function Workspace({ project, onBack }: WorkspaceProps) {
   const [evidenceResults, setEvidenceResults] = useState<EvidenceResult[]>(project.evidenceResults)
   const [comments, setComments] = useState(project.comments)
   const [paragraphs] = useState(project.paragraphs.length > 0 ? project.paragraphs : emptyDraftParagraphs)
-  const [graphNodes, setGraphNodes] = useState<GraphNode[]>(project.graphNodes)
-  const [graphEdges, setGraphEdges] = useState<GraphEdge[]>(project.graphEdges)
+  const [selectedSourceId, setSelectedSourceId] = useState<string | null>(project.sources[0]?.id ?? null)
+  const [sourceGraphNodes] = useState(project.sourceGraphNodes)
+  const [sourceGraphEdges, setSourceGraphEdges] = useState<SourceGraphEdge[]>(project.sourceGraphEdges)
 
   const activeClaim = useMemo(
     () => claims.find((claim) => claim.id === activeClaimId) ?? null,
@@ -55,6 +56,8 @@ export function Workspace({ project, onBack }: WorkspaceProps) {
     setActiveTab('graph')
     const selected = claims.find((claim) => claim.id === claimId)
     setClaimInput(selected?.text ?? '')
+    const firstEvidence = evidenceResults.find((evidence) => evidence.claimId === claimId)
+    setSelectedSourceId(firstEvidence?.sourceId ?? sources[0]?.id ?? null)
   }
 
   function handleUseHighlightedText(text: string) {
@@ -102,6 +105,7 @@ export function Workspace({ project, onBack }: WorkspaceProps) {
       current.map((claim) => (claim.id === evidence.claimId ? { ...claim, supported: true } : claim)),
     )
     setActiveClaimId(evidence.claimId)
+    setSelectedSourceId(evidence.sourceId)
     setActiveTab('graph')
   }
 
@@ -134,7 +138,6 @@ export function Workspace({ project, onBack }: WorkspaceProps) {
     }
     setClaims((current) => [...current, newClaim])
     setActiveClaimId(newClaim.id)
-    setGraphNodes((current) => [...current, { id: newClaim.id, label: text, kind: 'claim' }])
     return newClaim
   }
 
@@ -153,16 +156,27 @@ export function Workspace({ project, onBack }: WorkspaceProps) {
     }
 
     setEvidenceResults((current) => [...current, newEvidence])
-    setGraphEdges((current) => [
-      ...current,
-      {
-        id: `edge-${Date.now()}`,
-        from: claimId,
-        to: source.id,
-        label: 'suggested evidence',
-        strength: 'medium',
-      },
-    ])
+    setSelectedSourceId(source.id)
+    setSourceGraphEdges((current) => {
+      const fromSourceId = sources[0]?.id
+      const toSourceId = source.id
+      if (!fromSourceId || !toSourceId || fromSourceId === toSourceId) return current
+      const exists = current.some(
+        (edge) =>
+          (edge.fromSourceId === fromSourceId && edge.toSourceId === toSourceId) ||
+          (edge.fromSourceId === toSourceId && edge.toSourceId === fromSourceId),
+      )
+      if (exists) return current
+      return [
+        ...current,
+        {
+          id: `source-edge-${Date.now()}`,
+          fromSourceId,
+          toSourceId,
+          label: 'related evidence',
+        },
+      ]
+    })
   }
 
   return (
@@ -230,7 +244,7 @@ export function Workspace({ project, onBack }: WorkspaceProps) {
         </div>
       </header>
 
-      <main className="grid min-h-0 flex-1 grid-cols-1 gap-4 overflow-y-auto p-4 xl:grid-cols-[220px_minmax(0,1fr)_380px] xl:overflow-hidden">
+      <main className="grid min-h-0 flex-1 grid-cols-1 gap-4 overflow-y-auto p-4 xl:grid-cols-[220px_minmax(0,1fr)_560px] xl:overflow-hidden">
         <CommentMargin comments={visibleComments} onResolve={handleResolveComment} />
         <DocumentEditor
           activeClaimId={activeClaimId}
@@ -243,12 +257,15 @@ export function Workspace({ project, onBack }: WorkspaceProps) {
         <InspectorPanel
           activeClaim={activeClaim}
           activeTab={activeTab}
+          claims={claims}
           evidenceResults={evidenceResults}
-          graphEdges={graphEdges}
-          graphNodes={graphNodes}
           onMapEvidence={handleMapEvidence}
+          onSelectSource={setSelectedSourceId}
           onSimulateUpload={handleSimulateUpload}
           onTabChange={setActiveTab}
+          selectedSourceId={selectedSourceId}
+          sourceGraphEdges={sourceGraphEdges}
+          sourceGraphNodes={sourceGraphNodes}
           sources={sources}
         />
       </main>

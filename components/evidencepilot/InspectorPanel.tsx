@@ -4,34 +4,35 @@ import type React from 'react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
-import type { Claim, EvidenceResult, GraphEdge, GraphNode, Source } from './types'
+import { SourceGraph } from './SourceGraph'
+import type { Claim, EvidenceResult, Source, SourceGraphEdge, SourceGraphNode } from './types'
 
 type InspectorPanelProps = {
   activeTab: 'source' | 'graph'
   onTabChange: (tab: 'source' | 'graph') => void
   activeClaim: Claim | null
+  claims: Claim[]
   sources: Source[]
   evidenceResults: EvidenceResult[]
-  graphNodes: GraphNode[]
-  graphEdges: GraphEdge[]
+  selectedSourceId: string | null
+  sourceGraphNodes: SourceGraphNode[]
+  sourceGraphEdges: SourceGraphEdge[]
+  onSelectSource: (sourceId: string) => void
   onSimulateUpload: () => void
   onMapEvidence: (evidenceId: string) => void
-}
-
-const strengthClassName: Record<GraphEdge['strength'], string> = {
-  strong: 'border-emerald-200 bg-emerald-50 text-emerald-700',
-  medium: 'border-blue-200 bg-blue-50 text-blue-700',
-  weak: 'border-amber-200 bg-amber-50 text-amber-700',
 }
 
 export function InspectorPanel({
   activeTab,
   onTabChange,
   activeClaim,
+  claims,
   sources,
   evidenceResults,
-  graphNodes,
-  graphEdges,
+  selectedSourceId,
+  sourceGraphNodes,
+  sourceGraphEdges,
+  onSelectSource,
   onSimulateUpload,
   onMapEvidence,
 }: InspectorPanelProps) {
@@ -74,11 +75,13 @@ export function InspectorPanel({
             onSimulateUpload={onSimulateUpload}
           />
         ) : (
-          <GraphTab
-            activeClaim={activeClaim}
-            activeEvidence={activeEvidence}
-            graphEdges={graphEdges}
-            graphNodes={graphNodes}
+          <SourceGraph
+            claims={claims}
+            evidenceResults={evidenceResults}
+            onSelectSource={onSelectSource}
+            selectedSourceId={selectedSourceId}
+            sourceGraphEdges={sourceGraphEdges}
+            sourceGraphNodes={sourceGraphNodes}
             sources={sources}
           />
         )}
@@ -185,93 +188,6 @@ function SourceTab({
       </div>
     </div>
   )
-}
-
-function GraphTab({
-  activeClaim,
-  activeEvidence,
-  graphEdges,
-  graphNodes,
-  sources,
-}: {
-  activeClaim: Claim | null
-  activeEvidence: EvidenceResult[]
-  graphEdges: GraphEdge[]
-  graphNodes: GraphNode[]
-  sources: Source[]
-}) {
-  if (!activeClaim) {
-    return <EmptyPanel icon={<Network className="size-5" />} text="Select a supported claim to open the graph map." />
-  }
-
-  const visibleEdges = graphEdges.filter((edge) => edge.from === activeClaim.id || edge.to === activeClaim.id)
-
-  return (
-    <div className="space-y-4">
-      <div className="rounded-md border border-blue-200 bg-blue-50 p-4 text-center">
-        <div className="text-xs font-semibold uppercase text-blue-700">Selected claim</div>
-        <div className="mt-2 text-sm font-semibold leading-5 text-blue-950">{activeClaim.text}</div>
-      </div>
-
-      <div className="space-y-3">
-        {activeEvidence.map((evidence) => {
-          const source = sources.find((item) => item.id === evidence.sourceId)
-          return (
-            <div key={evidence.id} className="grid grid-cols-[1fr_auto_1fr] items-center gap-2">
-              <NodeBox label={activeClaim.text} kind="claim" />
-              <div className="flex flex-col items-center">
-                <div className="h-px w-8 bg-slate-300" />
-                <Badge
-                  variant="outline"
-                  className={
-                    evidence.status === 'mapped'
-                      ? 'mt-1 border-emerald-200 bg-emerald-50 text-[10px] text-emerald-700'
-                      : 'mt-1 border-amber-200 bg-amber-50 text-[10px] text-amber-700'
-                  }
-                >
-                  {evidence.status}
-                </Badge>
-              </div>
-              <NodeBox label={source?.title ?? 'Unknown source'} kind="source" />
-            </div>
-          )
-        })}
-      </div>
-
-      {visibleEdges.length > 0 && (
-        <div className="border-t border-slate-200 pt-4">
-          <h3 className="mb-2 text-sm font-semibold">Relationship notes</h3>
-          <div className="space-y-2">
-            {visibleEdges.map((edge) => {
-              const node = graphNodes.find((item) => item.id === edge.to || item.id === edge.from)
-              return (
-                <div key={edge.id} className="rounded-md border border-slate-200 p-3">
-                  <div className="mb-2 flex items-center justify-between gap-2">
-                    <span className="text-sm font-medium">{edge.label}</span>
-                    <Badge variant="outline" className={strengthClassName[edge.strength]}>
-                      {edge.strength}
-                    </Badge>
-                  </div>
-                  <p className="text-xs text-slate-500">{node?.label}</p>
-                </div>
-              )
-            })}
-          </div>
-        </div>
-      )}
-    </div>
-  )
-}
-
-function NodeBox({ label, kind }: { label: string; kind: 'claim' | 'source' | 'related-claim' }) {
-  const className =
-    kind === 'claim'
-      ? 'border-blue-200 bg-blue-50 text-blue-950'
-      : kind === 'source'
-        ? 'border-emerald-200 bg-emerald-50 text-emerald-950'
-        : 'border-slate-200 bg-slate-50 text-slate-800'
-
-  return <div className={`min-h-16 rounded-md border p-2 text-center text-xs leading-5 ${className}`}>{label}</div>
 }
 
 function EmptyPanel({ icon, text }: { icon: React.ReactNode; text: string }) {

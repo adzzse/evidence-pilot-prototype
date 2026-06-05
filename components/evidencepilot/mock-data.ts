@@ -39,6 +39,20 @@ export const PROJECTS: ProjectWorkspace[] = [
         status: 'Ready',
         excerpt: 'Evidence traceability links project claims to source material so reviewers can evaluate support quality.',
       },
+      {
+        id: 'source-4',
+        title: 'stakeholder-alignment-study.pdf',
+        type: 'PDF',
+        status: 'Ready',
+        excerpt: 'Stakeholder alignment improves when teams document decision rationale and revisit risk assumptions during reviews.',
+      },
+      {
+        id: 'source-5',
+        title: 'communication-patterns-review.docx',
+        type: 'DOCX',
+        status: 'Ready',
+        excerpt: 'Communication patterns across agile ceremonies influence how quickly evidence gaps and project risks are discovered.',
+      },
     ],
     claims: [
       {
@@ -99,6 +113,22 @@ export const PROJECTS: ProjectWorkspace[] = [
         match: 82,
         status: 'suggested',
       },
+      {
+        id: 'evidence-5',
+        sourceId: 'source-4',
+        claimId: 'claim-communication-risk',
+        excerpt: 'Stakeholder alignment improves when teams document decision rationale and revisit risk assumptions during reviews.',
+        match: 86,
+        status: 'suggested',
+      },
+      {
+        id: 'evidence-6',
+        sourceId: 'source-5',
+        claimId: 'claim-traceable-evidence',
+        excerpt: 'Communication patterns across agile ceremonies influence how quickly evidence gaps and project risks are discovered.',
+        match: 80,
+        status: 'suggested',
+      },
     ],
     comments: [
       {
@@ -130,6 +160,21 @@ export const PROJECTS: ProjectWorkspace[] = [
       { id: 'edge-2', from: 'claim-communication-risk', to: 'source-2', label: 'suggested evidence', strength: 'medium' },
       { id: 'edge-3', from: 'claim-communication-risk', to: 'claim-feedback-loops', label: 'related claim', strength: 'weak' },
     ],
+    sourceGraphNodes: [
+      { id: 'graph-source-1', sourceId: 'source-1', x: 46, y: 40 },
+      { id: 'graph-source-2', sourceId: 'source-2', x: 28, y: 58 },
+      { id: 'graph-source-3', sourceId: 'source-3', x: 68, y: 62 },
+      { id: 'graph-source-4', sourceId: 'source-4', x: 58, y: 28 },
+      { id: 'graph-source-5', sourceId: 'source-5', x: 78, y: 42 },
+    ],
+    sourceGraphEdges: [
+      { id: 'source-edge-1', fromSourceId: 'source-1', toSourceId: 'source-2', label: 'shared claim' },
+      { id: 'source-edge-2', fromSourceId: 'source-1', toSourceId: 'source-3', label: 'related evidence' },
+      { id: 'source-edge-3', fromSourceId: 'source-1', toSourceId: 'source-4', label: 'shared claim' },
+      { id: 'source-edge-4', fromSourceId: 'source-1', toSourceId: 'source-5', label: 'same topic' },
+      { id: 'source-edge-5', fromSourceId: 'source-2', toSourceId: 'source-4', label: 'same topic' },
+      { id: 'source-edge-6', fromSourceId: 'source-3', toSourceId: 'source-5', label: 'related evidence' },
+    ],
   },
   {
     id: 'empty-project',
@@ -148,5 +193,7 @@ export const PROJECTS: ProjectWorkspace[] = [
     comments: [],
     graphNodes: [],
     graphEdges: [],
+    sourceGraphNodes: [],
+    sourceGraphEdges: [],
   },
 ]

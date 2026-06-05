@@ -67,6 +67,20 @@ export type GraphEdge = {
   strength: 'strong' | 'medium' | 'weak'
 }
 
+export type SourceGraphNode = {
+  id: string
+  sourceId: string
+  x: number
+  y: number
+}
+
+export type SourceGraphEdge = {
+  id: string
+  fromSourceId: string
+  toSourceId: string
+  label: 'shared claim' | 'related evidence' | 'same topic'
+}
+
 export type ProjectWorkspace = ProjectSummary & {
   paragraphs: string[]
   sources: Source[]
@@ -75,4 +89,6 @@ export type ProjectWorkspace = ProjectSummary & {
   comments: ReviewComment[]
   graphNodes: GraphNode[]
   graphEdges: GraphEdge[]
+  sourceGraphNodes: SourceGraphNode[]
+  sourceGraphEdges: SourceGraphEdge[]
 }
