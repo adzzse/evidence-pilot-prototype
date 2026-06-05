@@ -1,4 +1,62 @@
-import type { ProjectWorkspace } from './types'
+import type { ProjectWorkspace, SourceSet } from './types'
+
+export const SOURCE_SETS: SourceSet[] = [
+  {
+    id: 'source-set-agile-risk',
+    name: 'Agile Risk Evidence Pack',
+    description: 'Instructor-curated sources for communication, sprint feedback, and agile risk claims.',
+    tags: ['Agile', 'Risk', 'Communication'],
+    visibility: 'Shared',
+    ownerName: 'Instructor',
+    sharedProjectIds: ['agile-risk-project'],
+    sources: [
+      {
+        id: 'instructor-source-1',
+        title: 'instructor-agile-risk-framework.pdf',
+        type: 'PDF',
+        status: 'Ready',
+        excerpt: 'Risk control improves when agile teams define escalation paths, feedback cadence, and decision ownership.',
+        owner: 'instructor',
+        sourceSetId: 'source-set-agile-risk',
+        sharedBy: 'Instructor',
+        themes: ['risk control', 'communication protocol'],
+      },
+      {
+        id: 'instructor-source-2',
+        title: 'feedback-loop-benchmark.docx',
+        type: 'DOCX',
+        status: 'Ready',
+        excerpt: 'Teams with structured sprint feedback loops identify blockers earlier than teams relying on informal updates.',
+        owner: 'instructor',
+        sourceSetId: 'source-set-agile-risk',
+        sharedBy: 'Instructor',
+        themes: ['feedback loops', 'blocker discovery'],
+      },
+    ],
+  },
+  {
+    id: 'source-set-review-methods',
+    name: 'Software Review Methods',
+    description: 'Private instructor collection for future projects about peer review and evidence quality.',
+    tags: ['Review', 'Evidence Quality'],
+    visibility: 'Private',
+    ownerName: 'Instructor',
+    sharedProjectIds: [],
+    sources: [
+      {
+        id: 'instructor-source-3',
+        title: 'software-review-rubric.pdf',
+        type: 'PDF',
+        status: 'Ready',
+        excerpt: 'Review rubrics improve feedback consistency by separating claim clarity, evidence strength, and writing quality.',
+        owner: 'instructor',
+        sourceSetId: 'source-set-review-methods',
+        sharedBy: 'Instructor',
+        themes: ['review rubric', 'feedback quality'],
+      },
+    ],
+  },
+]
 
 export const PROJECTS: ProjectWorkspace[] = [
   {

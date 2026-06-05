@@ -145,6 +145,11 @@ function SelectedSourcePanel({
             <p className="mt-1 text-xs text-slate-500">
               {selectedSource.type} - {selectedSource.status}
             </p>
+            {selectedSource.owner === 'instructor' && (
+              <Badge className="mt-2 border-emerald-200 bg-emerald-50 text-emerald-700" variant="outline">
+                Shared by {selectedSource.sharedBy ?? 'Instructor'}
+              </Badge>
+            )}
           </div>
           <Badge variant="outline" className="border-blue-200 bg-blue-50 text-blue-700">
             {connectionCount} links

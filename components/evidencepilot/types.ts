@@ -6,6 +6,10 @@ export type ReviewStatus = 'Not submitted' | 'Ready for Review' | 'Returned'
 
 export type SourceType = 'PDF' | 'DOCX' | 'Link'
 
+export type SourceOwner = 'student' | 'instructor'
+
+export type SourceSetVisibility = 'Private' | 'Shared'
+
 export type EvidenceStatus = 'mapped' | 'suggested'
 
 export type CommentTarget = 'claim' | 'mapping' | 'text'
@@ -32,6 +36,21 @@ export type Source = {
   type: SourceType
   status: 'Ready' | 'Processing'
   excerpt: string
+  owner?: SourceOwner
+  sourceSetId?: string
+  sharedBy?: string
+  themes?: string[]
+}
+
+export type SourceSet = {
+  id: string
+  name: string
+  description: string
+  tags: string[]
+  visibility: SourceSetVisibility
+  ownerName: string
+  sharedProjectIds: string[]
+  sources: Source[]
 }
 
 export type EvidenceResult = {
