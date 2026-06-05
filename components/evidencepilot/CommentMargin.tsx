@@ -38,8 +38,9 @@ export function CommentMargin({ comments, onResolve }: CommentMarginProps) {
         >
           <div className="mb-2 flex items-center justify-between gap-2">
             <Badge variant="outline" className="rounded-sm border-slate-200 bg-slate-50 text-slate-600">
-              {targetLabel[comment.target]}
+              {comment.category}
             </Badge>
+            <span className="text-xs text-slate-500">{targetLabel[comment.target]}</span>
             {comment.resolved && <CheckCircle2 className="size-4 text-emerald-600" />}
           </div>
           <blockquote className="mb-2 border-l-2 border-slate-300 pl-2 text-xs leading-5 text-slate-500">
