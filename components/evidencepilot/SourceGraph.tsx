@@ -75,19 +75,15 @@ export function SourceGraph({
           return (
             <button
               key={node.id}
-              className={`absolute z-20 flex -translate-x-1/2 -translate-y-1/2 flex-col items-center gap-1 rounded-full border px-3 py-2 text-xs font-semibold shadow-sm transition hover:scale-105 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 ${getNodeColor(
-                connectionCount,
-              )} ${selected ? 'ring-4 ring-blue-300' : ''}`}
-              onClick={() => onSelectSource(source.id)}
-              style={{ left: `${node.x}%`, top: `${node.y}%` }}
-              type="button"
-            >
-              <span className="flex size-8 items-center justify-center rounded-full bg-white/20">
-                <FileText className="size-4" />
-              </span>
-              <span className="max-w-28 truncate">{shortSourceTitle(source.title)}</span>
-              <span className="rounded-full bg-white/20 px-2 py-0.5 text-[10px]">{connectionCount} links</span>
-            </button>
+              className={`absolute z-20 flex -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border shadow-sm transition hover:scale-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 ${getNodeColor(
+              connectionCount,
+              )} ${selected ? 'ring-4 ring-blue-300 size-12' : 'size-10'}`} // Made the node a clean circle
+            onClick={() => onSelectSource(source.id)}
+            style={{ left: `${node.x}%`, top: `${node.y}%` }}
+            title={source.title} // Let the native browser tooltip handle the long name on hover
+            type="button">
+            <FileText className="size-4" />
+          </button>
           )
         })}
 

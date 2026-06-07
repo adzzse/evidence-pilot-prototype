@@ -303,6 +303,7 @@ function SourceTabContent({
 }
 
 function FeedbackTabContent({
+  actor,
   comments,
   feedbackCategory,
   feedbackDraft,
@@ -311,6 +312,7 @@ function FeedbackTabContent({
   onFeedbackCategoryChange,
   onFeedbackDraftChange,
 }: {
+  actor : ActorRole
   comments: ReviewComment[]
   feedbackCategory: CommentCategory
   feedbackDraft: string
@@ -393,7 +395,7 @@ function FeedbackTabContent({
       </div>
 
       {/* New Comment Form */}
-      {reviewSelection && (
+      {actor === 'instructor' && reviewSelection && (
         <div className="rounded-md border border-slate-200 bg-slate-50 p-3">
           <h4 className="mb-2 text-xs font-semibold uppercase text-slate-600">Add Feedback</h4>
           <div className="mb-2">
