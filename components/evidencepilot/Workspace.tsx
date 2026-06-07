@@ -1,14 +1,16 @@
 'use client'
 
-import { ArrowLeft, CheckCircle2, MessageSquare, RotateCcw, Send, Sparkles } from 'lucide-react'
+import { ArrowLeft, CheckCircle2, MessageSquare, RotateCcw, Send, Sparkles, Clock } from 'lucide-react'
 import { useMemo, useState } from 'react'
 
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { CommentMargin } from './CommentMargin'
-import { DocumentEditor } from './DocumentEditor'
-import { InspectorPanel, type WorkspaceTab } from './InspectorPanel'
+import { LatexEditor } from './LatexEditor'
+import { RightPanel, type ConsolidatedTab } from './RightPanel'
+import { Sidebar } from './Sidebar'
+import { FileOutlinePanel } from './FileOutlinePanel'
+import { VersionHistory } from './VersionHistory'
 import type {
   ActorRole,
   Claim,
@@ -61,7 +63,9 @@ export function Workspace({ actor, project, sharedSourceSets, onBack, onProjectC
   )
   const [projectStatus, setProjectStatus] = useState(project.status)
   const [reviewStatus, setReviewStatus] = useState(project.reviewStatus)
-  const [activeTab, setActiveTab] = useState<WorkspaceTab>('source')
+  const [activeTab, setActiveTab] = useState<ConsolidatedTab>('source')
+  const [activeSidebarSection, setActiveSidebarSection] = useState<'files' | 'history' | 'settings'>('files')
+  const [isVersionHistoryOpen, setIsVersionHistoryOpen] = useState(false)
   const [activeClaimId, setActiveClaimId] = useState<string | null>(
     project.claims.find((claim) => claim.supported)?.id ?? null,
   )
@@ -353,6 +357,14 @@ export function Workspace({ actor, project, sharedSourceSets, onBack, onProjectC
                 {unresolvedCount} open feedback
               </Badge>
             )}
+            <Button
+              className="gap-2 rounded-md"
+              onClick={() => setIsVersionHistoryOpen(!isVersionHistoryOpen)}
+              variant="outline"
+            >
+              <Clock className="size-4" />
+              History
+            </Button>
             {isInstructor ? (
               <Button className="gap-2 rounded-md" onClick={handleReturnWithFeedback}>
                 <MessageSquare className="size-4" />
@@ -380,48 +392,23 @@ export function Workspace({ actor, project, sharedSourceSets, onBack, onProjectC
             )}
           </div>
         </div>
-
-        <div className="border-t border-slate-100 px-4 py-3">
-          <div className="mx-auto flex max-w-5xl flex-col gap-2 md:flex-row">
-            <Input
-              value={claimInput}
-              onChange={(event) => setClaimInput(event.target.value)}
-              placeholder={
-                isInstructor
-                  ? 'Selected claim appears here while you inspect evidence'
-                  : 'Type a claim, or highlight text in the document'
-              }
-              className="h-10 rounded-md bg-white"
-              readOnly={isInstructor}
-            />
-            {isInstructor ? (
-              <Button className="h-10 shrink-0 gap-2 rounded-md" onClick={() => setActiveTab('feedback')} variant="outline">
-                <MessageSquare className="size-4" />
-                Comment
-              </Button>
-            ) : (
-              <Button className="h-10 shrink-0 gap-2 rounded-md" onClick={handleFindSources}>
-                <Sparkles className="size-4" />
-                Find sources
-              </Button>
-            )}
-          </div>
-        </div>
       </header>
 
-      <main className="grid min-h-0 flex-1 grid-cols-1 gap-4 overflow-y-auto p-4 xl:grid-cols-[220px_minmax(0,1fr)_560px] xl:overflow-hidden">
-        <CommentMargin comments={visibleComments} onResolve={handleResolveComment} />
-        <DocumentEditor
-          actor={actor}
-          activeClaimId={activeClaimId}
-          claims={claims}
-          comments={visibleComments}
-          onCommentOnText={handleCommentOnText}
-          onSelectClaim={handleSelectClaim}
-          onUseHighlightedText={handleUseHighlightedText}
-          paragraphs={paragraphs}
-        />
-        <InspectorPanel
+      <main className="grid min-h-0 flex-1 grid-cols-1 gap-0 overflow-y-auto p-0 xl:grid-cols-[40px_180px_minmax(0,7fr)_minmax(0,3fr)] xl:overflow-hidden">
+        {/* Sidebar */}
+        <Sidebar activeSection={activeSidebarSection} onSectionChange={setActiveSidebarSection} />
+
+        {/* File Outline Panel */}
+        <FileOutlinePanel />
+
+        {/* LaTeX Editor */}
+        <div className="hidden min-h-0 flex-col gap-4 overflow-hidden p-4 xl:flex">
+          <LatexEditor onRecompile={() => {}} />
+        </div>
+
+        {/* Right Column - Consolidated Panel */}
+        <div className="hidden min-h-0 flex-col gap-4 overflow-hidden p-4 xl:flex">
+          <RightPanel
           actor={actor}
           activeClaim={activeClaim}
           activeTab={activeTab}
@@ -445,7 +432,11 @@ export function Workspace({ actor, project, sharedSourceSets, onBack, onProjectC
           sourceSets={sharedSourceSets}
           sources={sources}
         />
+        </div>
       </main>
+
+      {/* Version History Panel */}
+      <VersionHistory isOpen={isVersionHistoryOpen} onClose={() => setIsVersionHistoryOpen(false)} />
     </div>
   )
 }
