@@ -193,19 +193,27 @@ function SourceTabContent({
   onMapEvidence: (evidenceId: string) => void
   onSimulateUpload: () => void
 }) {
+  const isInstructor = actor === 'instructor'
+
   return (
     <div className="space-y-4">
       {/* Upload Section */}
-      <div className="rounded-md border border-dashed border-slate-300 bg-slate-50 p-3">
-        <Button
-          className="h-8 w-full gap-2 rounded text-xs"
-          onClick={onSimulateUpload}
-          variant="outline"
-        >
-          <FileUp className="size-3" />
-          Upload PDF / DOCX
-        </Button>
-      </div>
+      {isInstructor ? (
+        <div className="rounded-md border border-slate-200 bg-slate-50 p-3 text-xs leading-5 text-slate-600">
+          Review the student's submitted sources, inspect evidence matches, then add feedback from the document or evidence cards.
+        </div>
+      ) : (
+        <div className="rounded-md border border-dashed border-slate-300 bg-slate-50 p-3">
+          <Button
+            className="h-8 w-full gap-2 rounded text-xs"
+            onClick={onSimulateUpload}
+            variant="outline"
+          >
+            <FileUp className="size-3" />
+            Upload PDF / DOCX
+          </Button>
+        </div>
+      )}
 
       {/* Source Sets */}
       {sourceSets.length > 0 && (
@@ -272,7 +280,7 @@ function SourceTabContent({
                 </div>
                 <p className="text-xs text-slate-600">{evidence.excerpt}</p>
                 <div className="mt-2 flex gap-1">
-                  {evidence.status === 'suggested' && (
+                  {!isInstructor && evidence.status === 'suggested' && (
                     <Button
                       className="h-6 text-xs"
                       onClick={() => onMapEvidence(evidence.id)}
@@ -282,7 +290,7 @@ function SourceTabContent({
                       Map
                     </Button>
                   )}
-                  {actor === 'instructor' && (
+                  {isInstructor && (
                     <Button
                       className="h-6 text-xs"
                       onClick={() => onCommentOnEvidence(evidence)}

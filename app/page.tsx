@@ -7,6 +7,27 @@ import { PROJECTS, SOURCE_SETS } from '@/components/evidencepilot/mock-data'
 import type { ActorRole, ProjectWorkspace, SourceSet } from '@/components/evidencepilot/types'
 import { Workspace } from '@/components/evidencepilot/Workspace'
 
+const UPLOAD_SOURCE_TEMPLATES = [
+  {
+    title: 'added-risk-escalation-notes.pdf',
+    type: 'PDF' as const,
+    excerpt: 'Escalation notes compare communication checkpoints, decision ownership, and risk response timing.',
+    themes: ['risk control', 'decision ownership'],
+  },
+  {
+    title: 'added-feedback-quality-review.docx',
+    type: 'DOCX' as const,
+    excerpt: 'Feedback quality improves when reviewers separate evidence relevance from writing clarity.',
+    themes: ['feedback quality', 'review rubric'],
+  },
+  {
+    title: 'added-traceability-matrix.pdf',
+    type: 'PDF' as const,
+    excerpt: 'Traceability matrices help reviewers compare claims, source excerpts, and unresolved evidence gaps.',
+    themes: ['traceability', 'evidence quality'],
+  },
+]
+
 export default function EvidencePilotPrototype() {
   const [actor, setActor] = useState<ActorRole>('student')
   const [activeProjectId, setActiveProjectId] = useState<string | null>(null)
@@ -63,8 +84,9 @@ export default function EvidencePilotPrototype() {
     setSourceSets((current) =>
       current.map((sourceSet) => {
         if (sourceSet.id !== sourceSetId) return sourceSet
-        const sourceId = `${sourceSetId}-added-source`
-        if (sourceSet.sources.some((source) => source.id === sourceId)) return sourceSet
+        const uploadIndex = sourceSet.sources.filter((source) => source.id.startsWith(`${sourceSetId}-added-source-`)).length
+        const sourceId = `${sourceSetId}-added-source-${uploadIndex + 1}`
+        const template = UPLOAD_SOURCE_TEMPLATES[uploadIndex % UPLOAD_SOURCE_TEMPLATES.length]
 
         return {
           ...sourceSet,
@@ -72,16 +94,31 @@ export default function EvidencePilotPrototype() {
             ...sourceSet.sources,
             {
               id: sourceId,
-              title: 'added-instructor-source.docx',
-              type: 'DOCX',
+              title: template.title,
+              type: template.type,
               status: 'Ready',
-              excerpt: 'Newly added instructor source with reusable evidence for claim review and student support.',
+              excerpt: template.excerpt,
               owner: 'instructor',
               sourceSetId,
               sharedBy: sourceSet.ownerName,
-              themes: ['added source', 'claim support'],
+              themes: template.themes,
             },
           ],
+        }
+      }),
+    )
+  }
+
+  function handleUnlinkSourceSet(sourceSetId: string, projectId: string) {
+    setSourceSets((current) =>
+      current.map((sourceSet) => {
+        if (sourceSet.id !== sourceSetId) return sourceSet
+        const sharedProjectIds = sourceSet.sharedProjectIds.filter((id) => id !== projectId)
+
+        return {
+          ...sourceSet,
+          visibility: sharedProjectIds.length > 0 ? 'Shared' : 'Private',
+          sharedProjectIds,
         }
       }),
     )
@@ -126,6 +163,7 @@ export default function EvidencePilotPrototype() {
       onCreateSourceSet={handleCreateSourceSet}
       onOpenProject={setActiveProjectId}
       onShareSourceSet={handleShareSourceSet}
+      onUnlinkSourceSet={handleUnlinkSourceSet}
     />
   )
 }

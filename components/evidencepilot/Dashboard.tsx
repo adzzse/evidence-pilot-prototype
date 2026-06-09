@@ -16,6 +16,7 @@ type DashboardProps = {
   onCreateSourceSet: () => void
   onOpenProject: (projectId: string) => void
   onShareSourceSet: (sourceSetId: string, projectId: string) => void
+  onUnlinkSourceSet: (sourceSetId: string, projectId: string) => void
 }
 
 const statusClassName: Record<ProjectStatus, string> = {
@@ -34,6 +35,7 @@ export function Dashboard({
   onCreateSourceSet,
   onOpenProject,
   onShareSourceSet,
+  onUnlinkSourceSet,
 }: DashboardProps) {
   const isInstructor = actor === 'instructor'
   const visibleProjects = isInstructor ? projects.filter((project) => !project.isEmpty) : projects
@@ -162,6 +164,7 @@ export function Dashboard({
             onAddSource={onAddSourceToSet}
             onCreateSourceSet={onCreateSourceSet}
             onShareSourceSet={onShareSourceSet}
+            onUnlinkSourceSet={onUnlinkSourceSet}
           />
         )}
       </section>

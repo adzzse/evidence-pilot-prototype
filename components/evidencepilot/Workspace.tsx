@@ -1,11 +1,12 @@
 'use client'
 
-import { ArrowLeft, CheckCircle2, MessageSquare, RotateCcw, Send, Sparkles, Clock } from 'lucide-react'
+import { ArrowLeft, CheckCircle2, MessageSquare, RotateCcw, Send, Clock } from 'lucide-react'
 import { useMemo, useState } from 'react'
 
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
+import { CommentMargin } from './CommentMargin'
+import { DocumentEditor } from './DocumentEditor'
 import { LatexEditor } from './LatexEditor'
 import { RightPanel, type ConsolidatedTab } from './RightPanel'
 import { Sidebar } from './Sidebar'
@@ -108,7 +109,7 @@ export function Workspace({ actor, project, sharedSourceSets, onBack, onProjectC
 
   function handleSelectClaim(claimId: string) {
     setActiveClaimId(claimId)
-    setActiveTab('graph')
+    setActiveTab(isInstructor ? 'feedback' : 'graph')
     const selected = claims.find((claim) => claim.id === claimId)
     setClaimInput(selected?.text ?? '')
     if (selected && isInstructor) {
@@ -394,44 +395,69 @@ export function Workspace({ actor, project, sharedSourceSets, onBack, onProjectC
         </div>
       </header>
 
-      <main className="grid min-h-0 flex-1 grid-cols-1 gap-0 overflow-y-auto p-0 xl:grid-cols-[40px_180px_minmax(0,7fr)_minmax(0,3fr)] xl:overflow-hidden">
+      <main
+        className={`grid min-h-0 flex-1 grid-cols-1 gap-0 overflow-y-auto p-0 xl:overflow-hidden ${
+          isInstructor
+            ? 'xl:grid-cols-[40px_180px_minmax(0,5fr)_240px_minmax(0,3fr)]'
+            : 'xl:grid-cols-[40px_180px_minmax(0,7fr)_minmax(0,3fr)]'
+        }`}
+      >
         {/* Sidebar */}
         <Sidebar activeSection={activeSidebarSection} onSectionChange={setActiveSidebarSection} />
 
         {/* File Outline Panel */}
         <FileOutlinePanel />
 
-        {/* LaTeX Editor */}
+        {/* Main workspace */}
         <div className="hidden min-h-0 flex-col gap-4 overflow-hidden p-4 xl:flex">
-          <LatexEditor onRecompile={() => {}} />
+          {isInstructor ? (
+            <DocumentEditor
+              actor={actor}
+              activeClaimId={activeClaimId}
+              claims={claims}
+              comments={visibleComments}
+              paragraphs={paragraphs}
+              onCommentOnText={handleCommentOnText}
+              onSelectClaim={handleSelectClaim}
+              onUseHighlightedText={handleUseHighlightedText}
+            />
+          ) : (
+            <LatexEditor onRecompile={() => {}} />
+          )}
         </div>
+
+        {isInstructor && (
+          <div className="hidden min-h-0 flex-col overflow-hidden py-4 xl:flex">
+            <CommentMargin comments={visibleComments} onResolve={handleResolveComment} />
+          </div>
+        )}
 
         {/* Right Column - Consolidated Panel */}
         <div className="hidden min-h-0 flex-col gap-4 overflow-hidden p-4 xl:flex">
           <RightPanel
-          actor={actor}
-          activeClaim={activeClaim}
-          activeTab={activeTab}
-          claims={claims}
-          comments={comments}
-          evidenceResults={evidenceResults}
-          feedbackCategory={feedbackCategory}
-          feedbackDraft={feedbackDraft}
-          reviewSelection={reviewSelection}
-          onAddComment={handleAddComment}
-          onCommentOnEvidence={handleCommentOnEvidence}
-          onFeedbackCategoryChange={setFeedbackCategory}
-          onFeedbackDraftChange={setFeedbackDraft}
-          onMapEvidence={handleMapEvidence}
-          onSelectSource={setSelectedSourceId}
-          onSimulateUpload={handleSimulateUpload}
-          onTabChange={setActiveTab}
-          selectedSourceId={selectedSourceId}
-          sourceGraphEdges={sourceGraphEdges}
-          sourceGraphNodes={sourceGraphNodes}
-          sourceSets={sharedSourceSets}
-          sources={sources}
-        />
+            actor={actor}
+            activeClaim={activeClaim}
+            activeTab={activeTab}
+            claims={claims}
+            comments={visibleComments}
+            evidenceResults={evidenceResults}
+            feedbackCategory={feedbackCategory}
+            feedbackDraft={feedbackDraft}
+            reviewSelection={reviewSelection}
+            selectedSourceId={selectedSourceId}
+            sourceGraphEdges={sourceGraphEdges}
+            sourceGraphNodes={sourceGraphNodes}
+            sourceSets={sharedSourceSets}
+            sources={sources}
+            onAddComment={handleAddComment}
+            onCommentOnEvidence={handleCommentOnEvidence}
+            onFeedbackCategoryChange={setFeedbackCategory}
+            onFeedbackDraftChange={setFeedbackDraft}
+            onMapEvidence={handleMapEvidence}
+            onSelectSource={setSelectedSourceId}
+            onSimulateUpload={handleSimulateUpload}
+            onTabChange={setActiveTab}
+          />
         </div>
       </main>
 
