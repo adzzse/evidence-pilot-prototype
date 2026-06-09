@@ -140,7 +140,12 @@ export default function EvidencePilotPrototype() {
   }
 
   if (activeProject) {
-    const sharedSourceSets = sourceSets.filter((sourceSet) => sourceSet.sharedProjectIds.includes(activeProject.id))
+    // SỬA TẠI ĐÂY: Nếu là project mới (không tìm thấy data shared cũ), ép lấy luôn bộ sourceSets đầu tiên làm mẫu để hiển thị
+    let sharedSourceSets = sourceSets.filter((sourceSet) => sourceSet.sharedProjectIds.includes(activeProject.id))
+    
+    if (sharedSourceSets.length === 0 && sourceSets.length > 0) {
+      sharedSourceSets = [sourceSets[0]]
+    }
 
     return (
       <Workspace
