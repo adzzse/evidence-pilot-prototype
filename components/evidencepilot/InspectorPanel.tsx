@@ -1,6 +1,6 @@
 import { FileUp, GitBranch, Link2, MessageSquare, Network, PlusCircle } from 'lucide-react'
 import type React from 'react'
-
+import { useState } from 'react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
@@ -40,7 +40,7 @@ type InspectorPanelProps = {
   onFeedbackDraftChange: (draft: string) => void
   sourceGraphNodes: SourceGraphNode[]
   sourceGraphEdges: SourceGraphEdge[]
-  sourceSets: SourceSet[]
+  sourceSets: SourceSet[] // Nhận trực tiếp từ page.tsx truyền xuống
   onSelectSource: (sourceId: string) => void
   onSimulateUpload: () => void
   onMapEvidence: (evidenceId: string) => void
@@ -76,6 +76,7 @@ export function InspectorPanel({
 
   return (
     <aside className="flex min-h-0 flex-col rounded-md border border-slate-200 bg-white shadow-sm">
+      {/* THANH TAB HEADER DỰA TRÊN CHỨC NĂNG */}
       <div className={`grid border-b border-slate-200 ${actor === 'instructor' ? 'grid-cols-3' : 'grid-cols-2'}`}>
         <button
           className={`flex items-center justify-center gap-2 px-4 py-3 text-sm font-semibold transition ${
@@ -111,6 +112,7 @@ export function InspectorPanel({
         )}
       </div>
 
+      {/* HIỂN THỊ NỘI DUNG THEO TAB ĐANG ĐƯỢC CHỌN */}
       <div className="min-h-0 flex-1 overflow-y-auto p-4">
         {activeTab === 'source' ? (
           <SourceTab
@@ -169,6 +171,7 @@ function SourceTab({
   onSimulateUpload: () => void
 }) {
   const isInstructor = actor === 'instructor'
+  const [importedSourceIds, setImportedSourceIds] = useState<string[]>([])
 
   return (
     <div className="space-y-4">
@@ -186,56 +189,102 @@ function SourceTab({
         </Button>
       )}
 
+      {/* HIỂN THỊ DANH SÁCH TÀI LIỆU GIẢNG VIÊN CHIA SẺ (ĐỌC ĐỘNG TỪ PROP) */}
       {!isInstructor && sourceSets.length > 0 && (
         <div className="rounded-md border border-emerald-200 bg-emerald-50 p-3">
-          <div className="text-sm font-semibold text-emerald-900">Shared by instructor</div>
-          <div className="mt-2 space-y-2">
+          <div className="text-sm font-semibold text-emerald-900 mb-2">Shared by instructor</div>
+          <div className="space-y-3">
             {sourceSets.map((sourceSet) => (
-              <div key={sourceSet.id} className="flex items-start justify-between gap-3 text-sm">
-                <div className="min-w-0">
-                  <div className="font-medium text-emerald-950">{sourceSet.name}</div>
-                  <div className="mt-1 text-xs leading-5 text-emerald-800">{sourceSet.description}</div>
+              <div key={sourceSet.id} className="rounded border border-emerald-200 bg-white p-2">
+                <div className="mb-2 flex items-start justify-between gap-2 border-b border-emerald-100 pb-2">
+                  <div className="min-w-0">
+                    <div className="font-semibold text-emerald-950">{sourceSet.name}</div>
+                    <div className="text-xs text-emerald-800">{sourceSet.description}</div>
+                  </div>
                 </div>
-                <Badge className="shrink-0 border-emerald-300 bg-white text-emerald-700" variant="outline">
-                  {sourceSet.sources.length} sources
-                </Badge>
+                
+                <div className="space-y-1.5">
+                  {sourceSet.sources.map((source) => {
+                    const isImported = importedSourceIds.includes(source.id)
+                    return (
+                      <div key={source.id} className="flex items-center justify-between bg-slate-50 p-2 rounded text-xs border border-slate-100">
+                        <span className="font-medium text-slate-700 truncate pr-2" title={source.title}>📄 {source.title}</span>
+                        <Button
+                          size="sm"
+                          className={`h-6 px-2 text-[10px] shrink-0 transition-all ${
+                            isImported 
+                              ? "bg-slate-200 text-slate-500 hover:bg-slate-200 cursor-not-allowed border-none" 
+                              : "bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm"
+                          }`}
+                          variant={isImported ? "outline" : "default"}
+                          disabled={isImported}
+                          onClick={() => setImportedSourceIds([...importedSourceIds, source.id])}
+                        >
+                          {isImported ? "Imported" : "Get file"}
+                        </Button>
+                      </div>
+                    )
+                  })}
+                </div>
               </div>
             ))}
           </div>
         </div>
       )}
 
+      {/* DANH SÁCH UPLOADED SOURCES */}
       <div>
         <div className="mb-2 flex items-center justify-between">
           <h3 className="text-sm font-semibold">Uploaded sources</h3>
-          <Badge variant="outline">{sources.length}</Badge>
+          <Badge variant="outline">{sources.length + importedSourceIds.length}</Badge>
         </div>
         <div className="space-y-2">
-          {sources.length === 0 ? (
+          {sources.length === 0 && importedSourceIds.length === 0 ? (
             <EmptyPanel icon={<FileUp className="size-5" />} text="Upload a source to begin matching evidence." />
           ) : (
-            sources.map((source) => (
-              <div key={source.id} className="rounded-md border border-slate-200 bg-slate-50 p-3">
-                <div className="flex items-start gap-2">
-                  <Link2 className="mt-0.5 size-4 shrink-0 text-slate-500" />
-                  <div className="min-w-0">
-                    <div className="truncate text-sm font-medium text-slate-900">{source.title}</div>
-                    <div className="mt-1 text-xs text-slate-500">
-                      {source.type} - {source.status}
+            <>
+              {/* Hiển thị các file vừa lấy từ bộ tài liệu giảng viên */}
+              {sourceSets.flatMap(s => s.sources)
+                .filter(s => importedSourceIds.includes(s.id))
+                .map((source) => {
+                  const parentSet = sourceSets.find(set => set.sources.some(s => s.id === source.id));
+                  return (
+                    <div key={`imported-${source.id}`} className="rounded-md border border-emerald-200 bg-emerald-50 p-3">
+                      <div className="flex items-start gap-2">
+                        <Link2 className="mt-0.5 size-4 shrink-0 text-emerald-600" />
+                        <div className="min-w-0">
+                          <div className="truncate text-sm font-medium text-emerald-900">{source.title}</div>
+                          <div className="mt-1 flex items-center gap-2 text-xs text-emerald-700">
+                            <span>{source.type}</span>
+                            <span>•</span>
+                            <span className="font-medium">Imported from {parentSet?.ownerName || 'Instructor'}</span>
+                          </div>
+                        </div>
+                      </div>
                     </div>
-                    {source.owner === 'instructor' && (
-                      <Badge className="mt-2 border-emerald-200 bg-emerald-50 text-emerald-700" variant="outline">
-                        Shared by {source.sharedBy ?? 'Instructor'}
-                      </Badge>
-                    )}
+                  )
+              })}
+
+              {/* Hiển thị các file gốc của sinh viên */}
+              {sources.map((source) => (
+                <div key={source.id} className="rounded-md border border-slate-200 bg-slate-50 p-3">
+                  <div className="flex items-start gap-2">
+                    <Link2 className="mt-0.5 size-4 shrink-0 text-slate-500" />
+                    <div className="min-w-0">
+                      <div className="truncate text-sm font-medium text-slate-900">{source.title}</div>
+                      <div className="mt-1 text-xs text-slate-500">
+                        {source.type} - {source.status}
+                      </div>
+                    </div>
                   </div>
                 </div>
-              </div>
-            ))
+              ))}
+            </>
           )}
         </div>
       </div>
 
+      {/* LIÊN KẾT EVIDENCE */}
       <div className="border-t border-slate-200 pt-4">
         <h3 className="mb-2 text-sm font-semibold">Related evidence</h3>
         {!activeClaim ? (
@@ -255,9 +304,7 @@ function SourceTab({
                   <div className="mb-2 flex items-start justify-between gap-2">
                     <div className="min-w-0">
                       <div className="truncate text-sm font-semibold">{source?.title ?? 'Unknown source'}</div>
-                      <div className="text-xs text-slate-500">
-                        Match {evidence.match}%{source?.owner === 'instructor' ? ' - instructor source' : ''}
-                      </div>
+                      <div className="text-xs text-slate-500">Match {evidence.match}%</div>
                     </div>
                     <Badge
                       variant="outline"
